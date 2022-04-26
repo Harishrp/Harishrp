@@ -1,0 +1,69 @@
+Root CA  -  self signed
+=======================
+ 
+openssl genrsa -des3 -out rootCA.key 4096
+ 
+openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 1024 -out rootCA.crt
+ 
+ 
+CSR for server
+ =======================
+
+openssl genrsa -out mydomain.com.key 2048
+ 
+ 
+openssl req -new -sha256 -key mydomain.com.key -out mydomain.com.csr
+ 
+openssl req -in mycsr.csr -noout -text
+ 
+Sign CSR with Root CA
+=======================
+
+ 
+openssl x509 -req -in mydomain.com.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out mydomain.com.crt -days 500 -sha256
+ 
+Or
+ 
+openssl x509 -req -in server01.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -CAserial rootCA.seq -out server01.crt -days 900 -sha256
+ 
+CSR for multiple domain names:
+=======================
+
+ 
+openssl req -new -sha256 -key domain.key -subj "/C=US/ST=CA/O=Acme, Inc./CN=example.com" -reqexts SAN -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName=DNS:example.com,DNS:www.example.com")) -out domain.csr
+ 
+View certs:
+openssl x509 -in server.crt -text -noout
+ 
+ 
+
+How to verify the private key in the certificate:
+=======================
+
+ 
+openssl x509 -noout -modulus -in isepan1MultiUse-cert.pem | openssl md5; openssl rsa -noout -modulus -in isepan1.key | openssl md5
+ 
+ 
+ 
+
+Creating intermediate certificate:
+=======================
+
+ 
+openssl genrsa -des3 -out intermedi-ca2.key  4096
+ 
+ 
+openssl req -config intermediate/openssl.cnf -new -sha256 -key intermediate/private/intermedi-ca2.key -out  intermediate/csr/intermedi-ca2.csr
+ 
+openssl ca -config openssl.cnf -extensions v3_intermediate_ca -days 3650 -notext -md sha256 -in intermediate/csr/intermedi-ca2.csr -out intermediate/certs/intermedi-ca2.crt
+ 
+cat intermediate/certs/intermedi-ca2.crt  certs/rootCA.crt > intermediate/certs/ca-valid-chain.crt
+ 
+ 
+ 
+Sign the server cert with this cert:
+=======================
+
+openssl req -config intermediate/openssl.cnf -new -sha256 -key ../server/server1.lab.perf4.key -out ../server/validIntmed.server1.lab.perf4.csr
+ 
+openssl ca -config intermediate/openssl.cnf -extensions server_cert -days 375 -notext -md sha256 -in ../server/validIntmed.server1.lab.perf4.csr -out ../server/validIntmed.server1.lab.perf4.crt
